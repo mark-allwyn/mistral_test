@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake 3D</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        #app { width: 100%; height: 100%; position: relative; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .panel { position: absolute; background: rgba(17, 17, 17, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; pointer-events: auto; backdrop-filter: blur(10px); }
+        .score-panel { top: 20px; left: 20px; }
+        .score-label { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .score-value { color: #fff; font-size: 28px; font-weight: 600; }
+        .controls-panel { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; padding: 12px 20px; }
+        .btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s ease; }
+        .btn:hover { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.3); }
+        .btn:active { background: rgba(255, 255, 255, 0.2); }
+        #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.9); z-index: 100; }
+        #menu.hidden { display: none; }
+        .title { color: #fff; font-size: 48px; font-weight: 700; margin-bottom: 40px; letter-spacing: -1px; }
+        .menu-buttons { display: flex; flex-direction: column; gap: 16px; width: 240px; }
+        .btn-menu { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 14px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s ease; text-align: center; }
+        .btn-menu:hover { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.3); }
+        .btn-primary { background: #fff; color: #111; border: none; }
+        .btn-primary:hover { background: #f0f0f0; }
+        #gameover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.95); z-index: 100; }
+        #gameover.visible { display: flex; }
+        .gameover-title { color: #fff; font-size: 36px; font-weight: 700; margin-bottom: 20px; }
+        .final-score { color: #888; font-size: 18px; margin-bottom: 30px; }
+        #pause { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.8); z-index: 100; }
+        #pause.visible { display: flex; }
+        .pause-title { color: #fff; font-size: 36px; font-weight: 700; margin-bottom: 30px; }
+        @media (max-width: 768px) {
+            .title { font-size: 36px; }
+            .menu-buttons { width: 200px; }
+            .controls-panel { flex-wrap: wrap; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="menu">
+            <div class="title">Snake 3D</div>
+            <div class="menu-buttons">
+                <button class="btn-menu btn-primary" id="start">Start</button>
+                <button class="btn-menu" id="howto">How to Play</button>
+            </div>
+        </div>
+        <div id="ui">
+            <div class="panel score-panel">
+                <div class="score-label">Score</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="panel score-panel" style="left: auto; right: 20px;">
+                <div class="score-label">Length</div>
+                <div class="score-value" id="length">1</div>
+            </div>
+            <div class="panel controls-panel">
+                <button class="btn" id="pause-btn">Pause</button>
+                <button class="btn" id="restart">Restart</button>
+            </div>
+        </div>
+        <div id="gameover">
+            <div class="gameover-title">Game Over</div>
+            <div class="final-score" id="final-score">Score: 0</div>
+            <div class="menu-buttons">
+                <button class="btn-menu btn-primary" id="play-again">Play Again</button>
+                <button class="btn-menu" id="menu-btn">Menu</button>
+            </div>
+        </div>
+        <div id="pause">
+            <div class="pause-title">Paused</div>
+            <div class="menu-buttons">
+                <button class="btn-menu btn-primary" id="resume">Resume</button>
+                <button class="btn-menu" id="restart-pause">Restart</button>
+                <button class="btn-menu" id="menu-pause">Menu</button>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+        const GAME_STATES = { MENU: 'menu', PLAYING: 'playing', PAUSED: 'paused', GAME_OVER: 'game_over' };
+        const GRID_SIZE = 20; const TILE_SIZE = 1; const GAME_SPEED = 150;
+        class Snake3D {
+            constructor(scene) {
+                this.scene = scene; this.gridSize = GRID_SIZE; this.tileSize = TILE_SIZE;
+                this.snake = []; this.direction = { x: 1, y: 0 }; this.nextDirection = { x: 1, y: 0 };
+                this.isGrowing = false; this.score = 0; this.food = null; this.snakeMeshes = []; this.foodMesh = null;
+                this.headMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.8, roughness: 0.2 });
+                this.bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.6, roughness: 0.4 });
+                this.tailMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.4, roughness: 0.6 });
+                this.foodMaterial = new THREE.MeshStandardMaterial({ color: 0xff4444, emissive: 0xff4444, emissiveIntensity: 0.5, metalness: 0.9, roughness: 0.1 });
+                this.init();
+            }
+            init() { this.reset(); }
+            reset() { this.clear(); const center = Math.floor(this.gridSize / 2); this.snake = [{ x: center, y: center }, { x: center - 1, y: center }, { x: center - 2, y: center }]; this.direction = { x: 1, y: 0 }; this.nextDirection = { x: 1, y: 0 }; this.score = 0; this.isGrowing = false; this.createSnake(); this.createFood(); }
+            clear() { this.snakeMeshes.forEach(mesh => this.scene.remove(mesh)); this.snakeMeshes = []; if (this.foodMesh) { this.scene.remove(this.foodMesh); this.foodMesh = null; } }
+            createSnake() { this.snake.forEach((segment, i) => { const geometry = new THREE.BoxGeometry(this.tileSize * 0.9, this.tileSize * 0.2, this.tileSize * 0.9); let material; if (i === 0) material = this.headMaterial; else if (i === this.snake.length - 1) material = this.tailMaterial; else material = this.bodyMaterial; const mesh = new THREE.Mesh(geometry, material); mesh.position.set((segment.x - this.gridSize / 2) * this.tileSize, 0, (segment.y - this.gridSize / 2) * this.tileSize); mesh.castShadow = true; mesh.receiveShadow = true; this.scene.add(mesh); this.snakeMeshes.push(mesh); }); }
+            createFood() { if (this.foodMesh) { this.scene.remove(this.foodMesh); } let foodPosition; let isValid = false; while (!isValid) { foodPosition = { x: Math.floor(Math.random() * this.gridSize), y: Math.floor(Math.random() * this.gridSize) }; isValid = true; for (const segment of this.snake) { if (segment.x === foodPosition.x && segment.y === foodPosition.y) { isValid = false; break; } } } this.food = foodPosition; const geometry = new THREE.SphereGeometry(this.tileSize * 0.4, 16, 16); this.foodMesh = new THREE.Mesh(geometry, this.foodMaterial); this.foodMesh.position.set((foodPosition.x - this.gridSize / 2) * this.tileSize, this.tileSize * 0.5, (foodPosition.y - this.gridSize / 2) * this.tileSize); this.foodMesh.castShadow = true; this.scene.add(this.foodMesh); }
+            move() { this.direction = { ...this.nextDirection }; const head = { ...this.snake[0] }; head.x += this.direction.x; head.y += this.direction.y; this.snake.unshift(head); if (!this.isGrowing) { this.snake.pop(); } else { this.isGrowing = false; } this.updateMeshes(); }
+            updateMeshes() { this.snake.forEach((segment, i) => { if (this.snakeMeshes[i]) { this.snakeMeshes[i].position.set((segment.x - this.gridSize / 2) * this.tileSize, 0, (segment.y - this.gridSize / 2) * this.tileSize); if (i === 0) this.snakeMeshes[i].material = this.headMaterial; else if (i === this.snake.length - 1) this.snakeMeshes[i].material = this.tailMaterial; else this.snakeMeshes[i].material = this.bodyMaterial; } }); }
+            checkCollisions() { const head = this.snake[0]; if (head.x < 0 || head.x >= this.gridSize || head.y < 0 || head.y >= this.gridSize) return true; for (let i = 1; i < this.snake.length; i++) { if (head.x === this.snake[i].x && head.y === this.snake[i].y) return true; } return false; }
+            checkFoodCollision() { const head = this.snake[0]; if (this.food && head.x === this.food.x && head.y === this.food.y) { this.score += 10 * this.snake.length; this.isGrowing = true; this.createFood(); return true; } return false; }
+        }
+        class Game { constructor() { this.state = GAME_STATES.MENU; this.scene = null; this.camera = null; this.renderer = null; this.snake = null; this.lastMoveTime = 0; this.animationId = null; this.ui = { menu: document.getElementById('menu'), gameover: document.getElementById('gameover'), pause: document.getElementById('pause'), score: document.getElementById('score'), length: document.getElementById('length'), finalScore: document.getElementById('final-score') }; this.init(); } init() { this.createScene(); this.createLights(); this.createGrid(); this.snake = new Snake3D(this.scene); this.setupEvents(); this.animate(); } createScene() { this.scene = new THREE.Scene(); this.scene.background = new THREE.Color(0x111111); const aspect = window.innerWidth / window.innerHeight; this.camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000); this.camera.position.set(0, 25, 25); this.camera.lookAt(0, 0, 0); this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); this.renderer.setSize(window.innerWidth, window.innerHeight); this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; document.getElementById('app').prepend(this.renderer.domElement); window.addEventListener('resize', () => this.onResize()); } createLights() { const ambient = new THREE.AmbientLight(0x404040, 0.5); this.scene.add(ambient); const directional = new THREE.DirectionalLight(0xffffff, 0.8); directional.position.set(10, 20, 10); directional.castShadow = true; directional.shadow.mapSize.width = 2048; directional.shadow.mapSize.height = 2048; directional.shadow.camera.near = 0.5; directional.shadow.camera.far = 50; directional.shadow.camera.left = -25; directional.shadow.camera.right = 25; directional.shadow.camera.top = 25; directional.shadow.camera.bottom = -25; this.scene.add(directional); const pointLight = new THREE.PointLight(0xff4444, 1, 15); this.scene.add(pointLight); } createGrid() { const grid = new THREE.GridHelper(GRID_SIZE * TILE_SIZE, GRID_SIZE, 0x222222, 0x111111); grid.position.y = -0.1; this.scene.add(grid); } setupEvents() { document.getElementById('start').addEventListener('click', () => this.start()); document.getElementById('howto').addEventListener('click', () => this.showHowTo()); document.getElementById('pause-btn').addEventListener('click', () => this.pause()); document.getElementById('restart').addEventListener('click', () => this.restart()); document.getElementById('play-again').addEventListener('click', () => this.restart()); document.getElementById('menu-btn').addEventListener('click', () => this.showMenu()); document.getElementById('resume').addEventListener('click', () => this.resume()); document.getElementById('restart-pause').addEventListener('click', () => this.restart()); document.getElementById('menu-pause').addEventListener('click', () => this.showMenu()); document.addEventListener('keydown', (e) => this.onKeyDown(e)); } onResize() { const w = window.innerWidth; const h = window.innerHeight; this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.renderer.setSize(w, h); } onKeyDown(e) { if (e.repeat) return; if (this.state === GAME_STATES.PLAYING) { const dir = this.snake.direction; switch (e.key) { case 'ArrowUp': case 'w': case 'W': if (dir.y === 0) this.snake.nextDirection = { x: 0, y: -1 }; break; case 'ArrowDown': case 's': case 'S': if (dir.y === 0) this.snake.nextDirection = { x: 0, y: 1 }; break; case 'ArrowLeft': case 'a': case 'A': if (dir.x === 0) this.snake.nextDirection = { x: -1, y: 0 }; break; case 'ArrowRight': case 'd': case 'D': if (dir.x === 0) this.snake.nextDirection = { x: 1, y: 0 }; break; case ' ': this.pause(); break; } } if (e.key === 'Escape') { if (this.state === GAME_STATES.PLAYING) this.pause(); else if (this.state === GAME_STATES.PAUSED) this.resume(); else if (this.state === GAME_STATES.GAME_OVER) this.showMenu(); } } start() { this.state = GAME_STATES.PLAYING; this.ui.menu.classList.add('hidden'); this.ui.gameover.classList.remove('visible'); this.ui.pause.classList.remove('visible'); this.snake.reset(); this.lastMoveTime = 0; } pause() { this.state = GAME_STATES.PAUSED; this.ui.pause.classList.add('visible'); } resume() { this.state = GAME_STATES.PLAYING; this.ui.pause.classList.remove('visible'); } restart() { this.start(); } showMenu() { this.state = GAME_STATES.MENU; this.ui.menu.classList.remove('hidden'); this.ui.gameover.classList.remove('visible'); this.ui.pause.classList.remove('visible'); } showHowTo() { alert('Use Arrow Keys or WASD to move. Eat the red food to grow. Avoid walls and yourself.'); } gameOver() { this.state = GAME_STATES.GAME_OVER; this.ui.gameover.classList.add('visible'); this.ui.finalScore.textContent = 'Score: ' + this.snake.score; } update() { if (this.state !== GAME_STATES.PLAYING) return; const now = performance.now(); if (now - this.lastMoveTime > GAME_SPEED) { this.snake.move(); if (this.snake.checkCollisions()) { this.gameOver(); return; } this.snake.checkFoodCollision(); this.ui.score.textContent = this.snake.score; this.ui.length.textContent = this.snake.snake.length; this.lastMoveTime = now; } } animate() { this.animationId = requestAnimationFrame(() => this.animate()); this.update(); this.render(); } render() { if (this.snake.foodMesh) { this.snake.foodMesh.rotation.y += 0.01; } this.renderer.render(this.scene, this.camera); } }
+        document.addEventListener('DOMContentLoaded', () => { window.game = new Game(); });
+    </script>
+</body>
+</html>
