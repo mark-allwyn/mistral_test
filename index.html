@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Aware Snake Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>Self-Aware Snake</h1>
+        <div class="game-info">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="length">Length: <span id="length">1</span></div>
+            <div class="awareness">Awareness: <span id="awareness">Active</span></div>
+        </div>
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div class="controls">
+            <button id="startBtn">Start Game</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="toggleAwareness">Toggle Awareness Visualization</button>
+        </div>
+        <div class="snake-stats">
+            <h3>Snake Self-Awareness</h3>
+            <div id="bodySegments"></div>
+            <div id="headPosition"></div>
+            <div id="direction"></div>
+            <div id="nextMove"></div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
